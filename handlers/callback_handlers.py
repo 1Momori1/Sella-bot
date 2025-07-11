@@ -10,12 +10,13 @@ logger = logging.getLogger(__name__)
 class CallbackHandlers:
     """Обработчики callback-запросов для интерактивных кнопок"""
     
-    def __init__(self, role_manager, system_monitor, process_manager, cloud_storage, notification_manager):
+    def __init__(self, role_manager, system_monitor, process_manager, cloud_storage, notification_manager, analytics=None):
         self.role_manager = role_manager
         self.system_monitor = system_monitor
         self.process_manager = process_manager
         self.cloud_storage = cloud_storage
         self.notification_manager = notification_manager
+        self.analytics = analytics
         # Словарь для отслеживания активных мониторингов
         self.active_monitors = {}
     
@@ -50,6 +51,21 @@ class CallbackHandlers:
                 await self.show_system_settings(update, context, user_id)
             elif callback_data == "notifications_settings":
                 await self.show_notifications_settings(update, context, user_id)
+            # Аналитика
+            elif callback_data == "analytics_dashboard":
+                await self.show_analytics_dashboard(update, context, user_id)
+            elif callback_data == "analytics_cpu_memory":
+                await self.create_cpu_memory_chart(update, context, user_id)
+            elif callback_data == "analytics_disk":
+                await self.create_disk_chart(update, context, user_id)
+            elif callback_data == "analytics_network":
+                await self.create_network_chart(update, context, user_id)
+            elif callback_data == "analytics_processes":
+                await self.create_processes_chart(update, context, user_id)
+            elif callback_data == "analytics_summary":
+                await self.create_system_summary(update, context, user_id)
+            elif callback_data == "analytics_collect_data":
+                await self.start_data_collection(update, context, user_id)
             # Сервер
             elif callback_data == "server_status":
                 await self.show_server_status(update, context, user_id)
@@ -769,7 +785,279 @@ class CallbackHandlers:
         await self.show_admin_section(update, context, user_id)
     
     async def show_admin_config(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-        """Показать конфигурацию"""
+        """Показать настройки админки"""
         query = update.callback_query
-        await query.answer("⚙️ Конфигурация в разработке")
-        await self.show_admin_section(update, context, user_id) 
+        await query.answer("Функция в разработке")
+    
+    # Методы аналитики
+    async def show_analytics_dashboard(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Показать дашборд аналитики"""
+        query = update.callback_query
+        
+        if not await self.role_manager.check_permission(user_id, "system", "view"):
+            await query.answer("❌ Нет доступа к аналитике")
+            return
+        
+        if not self.analytics:
+            await query.answer("❌ Модуль аналитики недоступен")
+            return
+        
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📊 Сводка системы", callback_data="analytics_summary")],
+            [InlineKeyboardButton("🖥️ CPU и память", callback_data="analytics_cpu_memory")],
+            [InlineKeyboardButton("💾 Использование диска", callback_data="analytics_disk")],
+            [InlineKeyboardButton("🌐 Сетевая активность", callback_data="analytics_network")],
+            [InlineKeyboardButton("⚙️ Топ процессов", callback_data="analytics_processes")],
+            [InlineKeyboardButton("📈 Сбор данных (60 сек)", callback_data="analytics_collect_data")],
+            [InlineKeyboardButton("⬅️ Назад", callback_data="section_system")]
+        ])
+        
+        await query.edit_message_text(
+            text="📊 **Аналитика системы**\n\nВыберите тип графика для создания:",
+            reply_markup=keyboard,
+            parse_mode='Markdown'
+        )
+    
+    async def create_system_summary(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Создать сводный график системы"""
+        query = update.callback_query
+        
+        if not self.analytics:
+            await query.answer("❌ Модуль аналитики недоступен")
+            return
+        
+        await query.answer("📊 Создаю сводный график...")
+        
+        try:
+            chart_path = self.analytics.create_system_summary()
+            
+            # Отправляем файл
+            with open(chart_path, 'rb') as file:
+                await context.bot.send_document(
+                    chat_id=user_id,
+                    document=file,
+                    filename="system_summary.html",
+                    caption="📊 **Сводка системы**\n\nОткройте файл в браузере для просмотра интерактивного графика"
+                )
+            
+            # Показываем кнопки
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📊 Создать еще", callback_data="analytics_summary")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="analytics_dashboard")]
+            ])
+            
+            await query.edit_message_text(
+                text="✅ **График создан!**\n\nФайл отправлен в чат. Откройте его в браузере для просмотра.",
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            logger.error(f"Ошибка создания сводного графика: {e}")
+            await query.answer("❌ Ошибка создания графика")
+    
+    async def create_cpu_memory_chart(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Создать график CPU и памяти"""
+        query = update.callback_query
+        
+        if not self.analytics:
+            await query.answer("❌ Модуль аналитики недоступен")
+            return
+        
+        await query.answer("📊 Создаю график CPU и памяти...")
+        
+        try:
+            # Собираем данные за 30 секунд
+            data_points = await self.analytics.collect_data_points(duration=30, interval=2)
+            chart_path = self.analytics.create_cpu_memory_chart(data_points)
+            
+            # Отправляем файл
+            with open(chart_path, 'rb') as file:
+                await context.bot.send_document(
+                    chat_id=user_id,
+                    document=file,
+                    filename="cpu_memory_chart.html",
+                    caption="🖥️ **График CPU и памяти**\n\nДанные за 30 секунд"
+                )
+            
+            # Показываем кнопки
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📊 Создать еще", callback_data="analytics_cpu_memory")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="analytics_dashboard")]
+            ])
+            
+            await query.edit_message_text(
+                text="✅ **График создан!**\n\nФайл отправлен в чат. Откройте его в браузере для просмотра.",
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            logger.error(f"Ошибка создания графика CPU/памяти: {e}")
+            await query.answer("❌ Ошибка создания графика")
+    
+    async def create_disk_chart(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Создать график использования диска"""
+        query = update.callback_query
+        
+        if not self.analytics:
+            await query.answer("❌ Модуль аналитики недоступен")
+            return
+        
+        await query.answer("📊 Создаю график диска...")
+        
+        try:
+            chart_path = self.analytics.create_disk_usage_chart()
+            
+            # Отправляем файл
+            with open(chart_path, 'rb') as file:
+                await context.bot.send_document(
+                    chat_id=user_id,
+                    document=file,
+                    filename="disk_usage.html",
+                    caption="💾 **Использование диска**\n\nКруговая диаграмма"
+                )
+            
+            # Показываем кнопки
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📊 Создать еще", callback_data="analytics_disk")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="analytics_dashboard")]
+            ])
+            
+            await query.edit_message_text(
+                text="✅ **График создан!**\n\nФайл отправлен в чат. Откройте его в браузере для просмотра.",
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            logger.error(f"Ошибка создания графика диска: {e}")
+            await query.answer("❌ Ошибка создания графика")
+    
+    async def create_network_chart(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Создать график сетевой активности"""
+        query = update.callback_query
+        
+        if not self.analytics:
+            await query.answer("❌ Модуль аналитики недоступен")
+            return
+        
+        await query.answer("📊 Создаю график сети...")
+        
+        try:
+            # Собираем данные за 30 секунд
+            data_points = await self.analytics.collect_data_points(duration=30, interval=2)
+            chart_path = self.analytics.create_network_chart(data_points)
+            
+            # Отправляем файл
+            with open(chart_path, 'rb') as file:
+                await context.bot.send_document(
+                    chat_id=user_id,
+                    document=file,
+                    filename="network_activity.html",
+                    caption="🌐 **Сетевая активность**\n\nДанные за 30 секунд"
+                )
+            
+            # Показываем кнопки
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📊 Создать еще", callback_data="analytics_network")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="analytics_dashboard")]
+            ])
+            
+            await query.edit_message_text(
+                text="✅ **График создан!**\n\nФайл отправлен в чат. Откройте его в браузере для просмотра.",
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            logger.error(f"Ошибка создания сетевого графика: {e}")
+            await query.answer("❌ Ошибка создания графика")
+    
+    async def create_processes_chart(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Создать график топ процессов"""
+        query = update.callback_query
+        
+        if not self.analytics:
+            await query.answer("❌ Модуль аналитики недоступен")
+            return
+        
+        await query.answer("📊 Создаю график процессов...")
+        
+        try:
+            chart_path = self.analytics.create_processes_chart(top_n=10)
+            
+            # Отправляем файл
+            with open(chart_path, 'rb') as file:
+                await context.bot.send_document(
+                    chat_id=user_id,
+                    document=file,
+                    filename="top_processes.html",
+                    caption="⚙️ **Топ 10 процессов**\n\nПо использованию CPU и памяти"
+                )
+            
+            # Показываем кнопки
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📊 Создать еще", callback_data="analytics_processes")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="analytics_dashboard")]
+            ])
+            
+            await query.edit_message_text(
+                text="✅ **График создан!**\n\nФайл отправлен в чат. Откройте его в браузере для просмотра.",
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            logger.error(f"Ошибка создания графика процессов: {e}")
+            await query.answer("❌ Ошибка создания графика")
+    
+    async def start_data_collection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Запустить сбор данных для аналитики"""
+        query = update.callback_query
+        
+        if not self.analytics:
+            await query.answer("❌ Модуль аналитики недоступен")
+            return
+        
+        await query.answer("📈 Начинаю сбор данных...")
+        
+        try:
+            # Собираем данные за 60 секунд
+            data_points = await self.analytics.collect_data_points(duration=60, interval=2)
+            
+            # Создаем комплексный график
+            chart_path = self.analytics.create_cpu_memory_chart(data_points)
+            
+            # Отправляем файл
+            with open(chart_path, 'rb') as file:
+                await context.bot.send_document(
+                    chat_id=user_id,
+                    document=file,
+                    filename="system_analysis.html",
+                    caption="📈 **Анализ системы**\n\nДанные за 60 секунд"
+                )
+            
+            # Показываем кнопки
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📊 Создать еще", callback_data="analytics_collect_data")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="analytics_dashboard")]
+            ])
+            
+            await query.edit_message_text(
+                text="✅ **Анализ завершен!**\n\nФайл отправлен в чат. Откройте его в браузере для просмотра.",
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            logger.error(f"Ошибка сбора данных: {e}")
+            await query.answer("❌ Ошибка сбора данных") 

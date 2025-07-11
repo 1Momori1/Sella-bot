@@ -5,10 +5,14 @@ from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime, timedelta
 import statistics
 from pathlib import Path
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from io import BytesIO
-import base64
+
+# Импорт нового модуля аналитики с plotly
+try:
+    from analytics.system_analytics import SystemAnalytics
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+    logging.warning("Модуль plotly недоступен. Аналитика будет ограничена.")
 
 class Analytics:
     """Модуль аналитики и генерации отчетов"""
@@ -35,8 +39,12 @@ class Analytics:
             "users": []
         }
         
-        # Настройка matplotlib для работы без GUI
-        plt.switch_backend('Agg')
+        # Инициализация модуля plotly аналитики
+        if PLOTLY_AVAILABLE:
+            self.plotly_analytics = SystemAnalytics()
+        else:
+            self.plotly_analytics = None
+            self.logger.warning("Plotly аналитика недоступна")
         
     async def start_analytics(self):
         """Запуск системы аналитики"""

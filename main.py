@@ -67,7 +67,7 @@ def main():
     security_monitor.notification_manager = notification_manager
 
     # Инициализация обработчиков
-    callback_handlers = CallbackHandlers(role_manager, system_monitor, process_manager, cloud_storage, notification_manager)
+    callback_handlers = CallbackHandlers(role_manager, system_monitor, process_manager, cloud_storage, notification_manager, analytics)
     file_handlers = FileHandlers(cloud_storage, role_manager)
 
     # Обработчик команды /start с интерактивным меню

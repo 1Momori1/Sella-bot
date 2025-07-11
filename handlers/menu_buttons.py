@@ -53,6 +53,10 @@ class MenuButtons:
         if "system" in user_permissions and "view" in user_permissions["system"]:
             keyboard.append([InlineKeyboardButton("📊 Мониторинг системы", callback_data="system_monitor")])
         
+        # Аналитика
+        if "system" in user_permissions and "view" in user_permissions["system"]:
+            keyboard.append([InlineKeyboardButton("📈 Аналитика", callback_data="analytics_dashboard")])
+        
         # Настройки
         if "system" in user_permissions and "settings" in user_permissions["system"]:
             keyboard.append([InlineKeyboardButton("⚙️ Настройки системы", callback_data="system_settings")])
