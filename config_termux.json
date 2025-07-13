@@ -1,0 +1,165 @@
+{
+  "bot_token": "7684724135:AAEWhZ1vf9F5yFh__jKMA8ljnQ0ReojAEIU",
+  "bot_name": "Селла",
+  "admin_ids": [
+    824312416
+  ],
+  "roles": {
+    "admin": {
+      "permissions": [
+        "*"
+      ]
+    },
+    "operator": {
+      "permissions": [
+        "system:view",
+        "system:monitor",
+        "server:view",
+        "server:manage",
+        "storage:view",
+        "storage:upload",
+        "storage:download",
+        "notifications:view"
+      ]
+    },
+    "monitor": {
+      "permissions": [
+        "system:view",
+        "system:monitor",
+        "server:view",
+        "storage:view",
+        "notifications:view"
+      ]
+    },
+    "user": {
+      "permissions": [
+        "system:view",
+        "storage:view"
+      ]
+    },
+    "guest": {
+      "permissions": [
+        "system:view"
+      ]
+    }
+  },
+  "users": {
+    "824312416": {
+      "name": "Админ",
+      "role": "admin",
+      "permissions": {
+        "system": [
+          "view",
+          "monitor",
+          "settings"
+        ],
+        "server": [
+          "view",
+          "manage",
+          "backup"
+        ],
+        "storage": [
+          "view",
+          "upload",
+          "download",
+          "delete",
+          "manage"
+        ],
+        "notifications": [
+          "view",
+          "manage"
+        ],
+        "admin": [
+          "users",
+          "roles",
+          "logs",
+          "config"
+        ]
+      }
+    }
+  },
+  "system": {
+    "monitoring": {
+      "check_interval": 60,
+      "cpu_threshold": 80,
+      "memory_threshold": 85,
+      "disk_threshold": 90,
+      "temperature_threshold": 45
+    },
+    "notifications": {
+      "enabled": true,
+      "cooldown": 300,
+      "alert_levels": [
+        "warning",
+        "critical"
+      ]
+    }
+  },
+  "minecraft": {
+    "enabled": false,
+    "jar_path": "/path/to/server.jar",
+    "max_ram": "2G",
+    "min_ram": "1G",
+    "port": 25565,
+    "auto_restart": true,
+    "backup_enabled": true,
+    "backup_interval": 3600
+  },
+  "storage": {
+    "path": "storage/",
+    "max_files_per_user": 1000,
+    "max_file_size": 52428800,
+    "auto_cleanup": true,
+    "allowed_extensions": [
+      "pdf",
+      "doc",
+      "docx",
+      "txt",
+      "rtf",
+      "jpg",
+      "jpeg",
+      "png",
+      "gif",
+      "bmp",
+      "webp",
+      "mp4",
+      "avi",
+      "mkv",
+      "mov",
+      "wmv",
+      "mp3",
+      "wav",
+      "flac",
+      "aac",
+      "ogg",
+      "zip",
+      "rar",
+      "7z",
+      "tar",
+      "gz"
+    ]
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "logs/sella_bot.log",
+    "max_size": "10MB",
+    "backup_count": 5
+  },
+  "web_interface": {
+    "enabled": false,
+    "host": "0.0.0.0",
+    "port": 8080,
+    "secret_key": "your-secret-key-change-this"
+  },
+  "ai_assistant": {
+    "enabled": true,
+    "auto_optimization": true,
+    "smart_alerts": true,
+    "learning_mode": true
+  },
+  "termux_mode": true,
+  "security": {
+    "max_failed_attempts": 5,
+    "session_timeout": 3600
+  }
+} 

@@ -16,7 +16,7 @@ NC='\033[0m'
 
 # Функции для вывода
 print_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
-print_warn() { echo -e "${YELLOW}[WARN]${NC} $1; }
+print_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 print_step() { echo -e "${BLUE}[STEP]${NC} $1"; }
 print_success() { echo -e "${CYAN}[SUCCESS]${NC} $1"; }
@@ -163,11 +163,7 @@ install_python_deps() {
     
     # Проверяем установку
     print_info "Проверка установленных модулей..."
-    if python -c "
-import telegram
-import psutil
-import asyncio
-if python -c "import telegram, psutil, asyncio, json, os, logging; print('All modules installed successfully')" 2>/dev/null; then
+    if python -c "import telegram, psutil, asyncio, json, os, logging; print('All modules installed successfully')" 2>/dev/null; then
         print_success "Все зависимости установлены успешно!"
     else
         print_error "Ошибка проверки зависимостей!"
@@ -202,11 +198,16 @@ setup_config() {
     print_step "Настройка конфигурации..."
     
     if ! file_exists "config.json"; then
-        print_warn "Файл config.json не найден, создаем шаблон..."
-        cat > config.json << 'EOF'
+        print_warn "Файл config.json не найден, копируем готовую конфигурацию..."
+        if file_exists "config_termux.json"; then
+            cp config_termux.json config.json
+            print_success "Конфигурация скопирована из config_termux.json"
+        else
+            print_warn "Создаем базовый шаблон config.json..."
+            cat > config.json << 'EOF'
 {
-  "bot_token": "ВАШ_ТОКЕН_ЗДЕСЬ",
-  "admin_ids": [ВАШ_TELEGRAM_ID],
+  "bot_token": "7684724135:AAEWhZ1vf9F5yFh__jKMA8ljnQ0ReojAEIU",
+  "admin_ids": [824312416],
   "termux_mode": true,
   "logging": {
     "level": "INFO",
@@ -222,9 +223,9 @@ setup_config() {
   }
 }
 EOF
-        print_info "Создан шаблон config.json"
-        print_warn "Отредактируйте config.json и вставьте ваш токен бота!"
-        return 1
+            print_info "Создан базовый config.json с токеном"
+        fi
+        return 0
     fi
     
     # Проверяем токен
