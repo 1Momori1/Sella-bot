@@ -150,6 +150,7 @@ install_python_deps() {
     DEPS=(
         "python-telegram-bot==20.7"
         "psutil==5.9.6"
+        "aiofiles==23.2.1"
     )
     
     # Устанавливаем каждую зависимость отдельно
@@ -163,7 +164,7 @@ install_python_deps() {
     
     # Проверяем установку
     print_info "Проверка установленных модулей..."
-    if python -c "import telegram, psutil, asyncio, json, os, logging; print('All modules installed successfully')" 2>/dev/null; then
+    if python -c "import telegram, psutil, aiofiles, asyncio, json, os, logging; print('All modules installed successfully')" 2>/dev/null; then
         print_success "Все зависимости установлены успешно!"
     else
         print_error "Ошибка проверки зависимостей!"
@@ -303,7 +304,7 @@ diagnose_issues() {
     print_info "Проверка Python модулей..."
     python -c "
 import sys
-modules = ['telegram', 'psutil', 'asyncio', 'json', 'os', 'logging']
+modules = ['telegram', 'psutil', 'aiofiles', 'asyncio', 'json', 'os', 'logging']
 missing = []
 for module in modules:
     try:
