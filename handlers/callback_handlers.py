@@ -391,7 +391,9 @@ class CallbackHandlers:
             
             message_text += "📁 **Ваши файлы:**\n"
             for file_info in files[:10]:  # Показываем первые 10
-                message_text += f"📄 {file_info['original_name']} ({file_info['size_formatted']})\n"
+                original_name = file_info.get('original_name', 'Неизвестный файл')
+                size_formatted = file_info.get('size_formatted', 'Неизвестно')
+                message_text += f"📄 {original_name} ({size_formatted})\n"
             
             if len(files) > 10:
                 message_text += f"\n... и еще {len(files) - 10} файлов"
@@ -724,12 +726,15 @@ class CallbackHandlers:
             # Отправляем файл пользователю
             await query.answer("📥 Отправляю файл...")
             
+            # Получаем имя файла с проверкой
+            original_name = file_info.get("original_name", os.path.basename(file_info["path"]))
+            
             with open(file_info["path"], 'rb') as file:
                 await context.bot.send_document(
                     chat_id=user_id,
                     document=file,
-                    filename=file_info["original_name"],
-                    caption=f"📄 {file_info['original_name']}\n📏 {file_info['size_formatted']}\n📅 {file_info['upload_time'][:19]}"
+                    filename=original_name,
+                    caption=f"📄 {original_name}\n📏 {file_info.get('size_formatted', 'Неизвестно')}\n📅 {file_info.get('upload_time', 'Неизвестно')[:19]}"
                 )
             
             await query.answer("✅ Файл отправлен")

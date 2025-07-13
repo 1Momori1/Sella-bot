@@ -375,7 +375,14 @@ class CloudStorage:
             
         except Exception as e:
             logger.error(f"Ошибка получения статистики хранилища: {e}")
-            return {"total_files": 0, "total_size": 0, "total_size_formatted": "0B"}
+            return {
+                "total_files": 0,
+                "total_size": 0,
+                "total_size_formatted": "0B",
+                "max_size": self.max_total_size,
+                "max_size_formatted": self.format_file_size(self.max_total_size),
+                "usage_percent": 0
+            }
     
     async def get_global_storage_stats(self) -> Dict[str, Any]:
         """Получение глобальной статистики хранилища"""
