@@ -172,7 +172,7 @@ import os
 import sys
 import logging
 import datetime
-print('✅ Все основные модули установлены')
+print('All modules installed successfully')
 " 2>/dev/null; then
         print_success "Все зависимости установлены успешно!"
     else
