@@ -11,10 +11,9 @@ from modules.system_monitor import SystemMonitor
 from modules.process_manager import ProcessManager
 from modules.cloud_storage import CloudStorage
 from modules.notification import NotificationManager
-from modules.web_interface import WebInterface
 from modules.ai_assistant import AIAssistant
 from modules.security_monitor import SecurityMonitor
-from modules.analytics import Analytics
+from simple_analytics import SimpleAnalytics
 
 # Импорт обработчиков команд
 from handlers.main_menu import show_main_menu
@@ -50,10 +49,9 @@ process_manager = ProcessManager(config, role_manager)
 cloud_storage = CloudStorage(config, role_manager)
 
 # Инициализация новых модулей
-web_interface = WebInterface(config, role_manager, system_monitor, process_manager, cloud_storage)
 ai_assistant = AIAssistant(config, role_manager, system_monitor, process_manager, None)  # notification_manager будет инициализирован позже
 security_monitor = SecurityMonitor(config, role_manager, system_monitor, process_manager, None)  # notification_manager будет инициализирован позже
-analytics = Analytics(config, role_manager, system_monitor, process_manager, cloud_storage)
+analytics = SimpleAnalytics()
 
 # Основная функция запуска
 def main():
@@ -127,15 +125,32 @@ def main():
     application.add_handler(MessageHandler(filters.PHOTO, lambda u, c: file_handlers.handle_photo(u, c)))
     application.add_handler(MessageHandler(filters.VIDEO, lambda u, c: file_handlers.handle_video(u, c)))
     application.add_handler(MessageHandler(filters.AUDIO, lambda u, c: file_handlers.handle_audio(u, c)))
+    
+    # Обработчик текстовых сообщений для добавления пользователей
+    async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Обработчик текстовых сообщений для добавления пользователей"""
+        if not update.message or not update.message.text:
+            return
+        
+        user_id = update.effective_user.id
+        
+        # Проверяем, находится ли пользователь в процессе добавления
+        if context.user_data.get('adding_user'):
+            # Обрабатываем ввод ID пользователя
+            from handlers.admin_handlers import handle_user_id_input
+            await handle_user_id_input(update, context, role_manager)
+        else:
+            # Обычная обработка текстовых сообщений
+            await update.message.reply_text("Используйте меню для навигации или команду /help для справки.")
+    
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
 
     # Фоновые задачи отключены для стабильности
     # Раскомментируйте для включения:
-    # if web_interface.enabled:
-    #     asyncio.create_task(web_interface.start_server())
     # if security_monitor.enabled:
     #     asyncio.create_task(security_monitor.start_security_monitoring())
-    # if analytics.enabled:
-    #     asyncio.create_task(analytics.start_analytics())
+    # Запуск простой аналитики
+    analytics.record_bot_event("startup", "Бот запущен")
     
     logger.info("Бот Селла запущен!")
     application.run_polling()

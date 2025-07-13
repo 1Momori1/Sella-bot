@@ -54,27 +54,31 @@ class CallbackHandlers:
             # Аналитика
             elif callback_data == "analytics_dashboard":
                 await self.show_analytics_dashboard(update, context, user_id)
-            elif callback_data == "analytics_cpu_memory":
-                await self.create_cpu_memory_chart(update, context, user_id)
-            elif callback_data == "analytics_disk":
-                await self.create_disk_chart(update, context, user_id)
-            elif callback_data == "analytics_network":
-                await self.create_network_chart(update, context, user_id)
-            elif callback_data == "analytics_processes":
-                await self.create_processes_chart(update, context, user_id)
             elif callback_data == "analytics_summary":
                 await self.create_system_summary(update, context, user_id)
-            elif callback_data == "analytics_collect_data":
-                await self.start_data_collection(update, context, user_id)
+            elif callback_data == "analytics_bot_events":
+                await self.show_bot_events(update, context, user_id)
+            elif callback_data == "analytics_users":
+                await self.show_user_activity(update, context, user_id)
+            elif callback_data == "analytics_full_report":
+                await self.show_full_report(update, context, user_id)
             # Сервер
             elif callback_data == "server_status":
                 await self.show_server_status(update, context, user_id)
-            elif callback_data == "server_start":
-                await self.start_server(update, context, user_id)
-            elif callback_data == "server_stop":
-                await self.stop_server(update, context, user_id)
+            elif callback_data == "server_restart":
+                await self.restart_bot(update, context, user_id)
+            elif callback_data == "server_restart_confirm":
+                await self.confirm_restart(update, context, user_id)
+            elif callback_data == "server_processes":
+                await self.show_processes(update, context, user_id)
             elif callback_data == "server_backup":
-                await self.create_server_backup(update, context, user_id)
+                await self.create_backup(update, context, user_id)
+            elif callback_data.startswith("backup_download_"):
+                backup_name = callback_data.replace("backup_download_", "")
+                await self.download_backup(update, context, user_id, backup_name)
+            elif callback_data.startswith("backup_delete_"):
+                backup_name = callback_data.replace("backup_delete_", "")
+                await self.delete_backup(update, context, user_id, backup_name)
             # Хранилище
             elif callback_data == "storage_list":
                 await self.show_storage_list(update, context, user_id)
@@ -91,10 +95,24 @@ class CallbackHandlers:
             # Админка
             elif callback_data == "admin_users":
                 await self.show_admin_users(update, context, user_id)
+            elif callback_data == "admin_add_user":
+                await self.add_user(update, context, user_id)
+            elif callback_data == "admin_add_user_id":
+                await self.show_add_user_form(update, context, user_id)
+            elif callback_data.startswith("admin_role_"):
+                await self.set_user_role(update, context, user_id)
+            elif callback_data == "admin_delete_user":
+                await self.delete_user(update, context, user_id)
+            elif callback_data.startswith("admin_delete_confirm_"):
+                await self.confirm_delete_user(update, context, user_id)
+            elif callback_data.startswith("admin_delete_final_"):
+                await self.final_delete_user(update, context, user_id)
             elif callback_data == "admin_permissions":
                 await self.show_admin_permissions(update, context, user_id)
             elif callback_data == "admin_logs":
-                await self.show_admin_logs(update, context, user_id)
+                await self.show_logs(update, context, user_id)
+            elif callback_data == "admin_full_log":
+                await self.show_full_log(update, context, user_id)
             elif callback_data == "admin_config":
                 await self.show_admin_config(update, context, user_id)
             # Общие
@@ -106,6 +124,12 @@ class CallbackHandlers:
                 await query.answer()  # Просто убираем часы загрузки
             elif callback_data == "cancel":
                 await self.show_main_menu(update, context, user_id)
+            elif callback_data == "help":
+                await self.show_help(update, context, user_id)
+            elif callback_data == "help_setup_guide":
+                await self.show_setup_guide(update, context, user_id)
+            elif callback_data == "help_troubleshooting":
+                await self.show_troubleshooting(update, context, user_id)
             # Детальная информация
             elif callback_data.startswith("file_info_"):
                 file_id = callback_data.replace("file_info_", "")
@@ -805,259 +829,1056 @@ class CallbackHandlers:
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📊 Сводка системы", callback_data="analytics_summary")],
-            [InlineKeyboardButton("🖥️ CPU и память", callback_data="analytics_cpu_memory")],
-            [InlineKeyboardButton("💾 Использование диска", callback_data="analytics_disk")],
-            [InlineKeyboardButton("🌐 Сетевая активность", callback_data="analytics_network")],
-            [InlineKeyboardButton("⚙️ Топ процессов", callback_data="analytics_processes")],
-            [InlineKeyboardButton("📈 Сбор данных (60 сек)", callback_data="analytics_collect_data")],
+            [InlineKeyboardButton("📊 Системная статистика", callback_data="analytics_summary")],
+            [InlineKeyboardButton("🤖 События бота", callback_data="analytics_bot_events")],
+            [InlineKeyboardButton("👥 Активность пользователей", callback_data="analytics_users")],
+            [InlineKeyboardButton("📈 Полный отчет", callback_data="analytics_full_report")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="section_system")]
         ])
         
         await query.edit_message_text(
-            text="📊 **Аналитика системы**\n\nВыберите тип графика для создания:",
+            text="📊 **Аналитика системы**\n\nВыберите тип отчета:",
             reply_markup=keyboard,
             parse_mode='Markdown'
         )
     
     async def create_system_summary(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-        """Создать сводный график системы"""
+        """Показать системную статистику"""
         query = update.callback_query
         
         if not self.analytics:
             await query.answer("❌ Модуль аналитики недоступен")
             return
         
-        await query.answer("📊 Создаю сводный график...")
+        await query.answer("📊 Получаю статистику...")
         
         try:
-            chart_path = self.analytics.create_system_summary()
+            # Записываем текущую статистику
+            self.analytics.record_system_stats()
             
-            # Отправляем файл
-            with open(chart_path, 'rb') as file:
-                await context.bot.send_document(
-                    chat_id=user_id,
-                    document=file,
-                    filename="system_summary.html",
-                    caption="📊 **Сводка системы**\n\nОткройте файл в браузере для просмотра интерактивного графика"
-                )
+            # Получаем текстовый отчет
+            summary = self.analytics.get_system_summary()
             
             # Показываем кнопки
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("📊 Создать еще", callback_data="analytics_summary")],
+                [InlineKeyboardButton("🔄 Обновить", callback_data="analytics_summary")],
                 [InlineKeyboardButton("⬅️ Назад", callback_data="analytics_dashboard")]
             ])
             
             await query.edit_message_text(
-                text="✅ **График создан!**\n\nФайл отправлен в чат. Откройте его в браузере для просмотра.",
+                text=summary,
                 reply_markup=keyboard,
                 parse_mode='Markdown'
             )
             
         except Exception as e:
-            logger.error(f"Ошибка создания сводного графика: {e}")
-            await query.answer("❌ Ошибка создания графика")
+            logger.error(f"Ошибка получения статистики: {e}")
+            await query.answer("❌ Ошибка получения статистики")
     
-    async def create_cpu_memory_chart(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-        """Создать график CPU и памяти"""
+    async def show_bot_events(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Показать события бота"""
         query = update.callback_query
         
         if not self.analytics:
             await query.answer("❌ Модуль аналитики недоступен")
             return
         
-        await query.answer("📊 Создаю график CPU и памяти...")
+        await query.answer("🤖 Получаю события бота...")
         
         try:
-            # Собираем данные за 30 секунд
-            data_points = await self.analytics.collect_data_points(duration=30, interval=2)
-            chart_path = self.analytics.create_cpu_memory_chart(data_points)
-            
-            # Отправляем файл
-            with open(chart_path, 'rb') as file:
-                await context.bot.send_document(
-                    chat_id=user_id,
-                    document=file,
-                    filename="cpu_memory_chart.html",
-                    caption="🖥️ **График CPU и памяти**\n\nДанные за 30 секунд"
-                )
+            # Получаем события за последние 24 часа
+            events_summary = self.analytics.get_bot_events_summary(hours=24)
             
             # Показываем кнопки
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("📊 Создать еще", callback_data="analytics_cpu_memory")],
+                [InlineKeyboardButton("🔄 Обновить", callback_data="analytics_bot_events")],
                 [InlineKeyboardButton("⬅️ Назад", callback_data="analytics_dashboard")]
             ])
             
             await query.edit_message_text(
-                text="✅ **График создан!**\n\nФайл отправлен в чат. Откройте его в браузере для просмотра.",
+                text=events_summary,
                 reply_markup=keyboard,
                 parse_mode='Markdown'
             )
             
         except Exception as e:
-            logger.error(f"Ошибка создания графика CPU/памяти: {e}")
-            await query.answer("❌ Ошибка создания графика")
+            logger.error(f"Ошибка получения событий бота: {e}")
+            await query.answer("❌ Ошибка получения событий")
     
-    async def create_disk_chart(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-        """Создать график использования диска"""
+    async def show_user_activity(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Показать активность пользователей"""
         query = update.callback_query
         
         if not self.analytics:
             await query.answer("❌ Модуль аналитики недоступен")
             return
         
-        await query.answer("📊 Создаю график диска...")
+        await query.answer("👥 Получаю активность пользователей...")
         
         try:
-            chart_path = self.analytics.create_disk_usage_chart()
-            
-            # Отправляем файл
-            with open(chart_path, 'rb') as file:
-                await context.bot.send_document(
-                    chat_id=user_id,
-                    document=file,
-                    filename="disk_usage.html",
-                    caption="💾 **Использование диска**\n\nКруговая диаграмма"
-                )
+            # Получаем активность пользователей
+            activity_summary = self.analytics.get_user_activity_summary()
             
             # Показываем кнопки
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("📊 Создать еще", callback_data="analytics_disk")],
+                [InlineKeyboardButton("🔄 Обновить", callback_data="analytics_users")],
                 [InlineKeyboardButton("⬅️ Назад", callback_data="analytics_dashboard")]
             ])
             
             await query.edit_message_text(
-                text="✅ **График создан!**\n\nФайл отправлен в чат. Откройте его в браузере для просмотра.",
+                text=activity_summary,
                 reply_markup=keyboard,
                 parse_mode='Markdown'
             )
             
         except Exception as e:
-            logger.error(f"Ошибка создания графика диска: {e}")
-            await query.answer("❌ Ошибка создания графика")
+            logger.error(f"Ошибка получения активности пользователей: {e}")
+            await query.answer("❌ Ошибка получения активности")
     
-    async def create_network_chart(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-        """Создать график сетевой активности"""
+    async def show_full_report(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Показать полный отчет о производительности"""
         query = update.callback_query
         
         if not self.analytics:
             await query.answer("❌ Модуль аналитики недоступен")
             return
         
-        await query.answer("📊 Создаю график сети...")
+        await query.answer("📈 Генерирую полный отчет...")
         
         try:
-            # Собираем данные за 30 секунд
-            data_points = await self.analytics.collect_data_points(duration=30, interval=2)
-            chart_path = self.analytics.create_network_chart(data_points)
+            # Записываем текущую статистику
+            self.analytics.record_system_stats()
             
-            # Отправляем файл
-            with open(chart_path, 'rb') as file:
-                await context.bot.send_document(
-                    chat_id=user_id,
-                    document=file,
-                    filename="network_activity.html",
-                    caption="🌐 **Сетевая активность**\n\nДанные за 30 секунд"
-                )
+            # Получаем полный отчет
+            full_report = self.analytics.get_performance_report()
             
             # Показываем кнопки
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("📊 Создать еще", callback_data="analytics_network")],
+                [InlineKeyboardButton("🔄 Обновить", callback_data="analytics_full_report")],
                 [InlineKeyboardButton("⬅️ Назад", callback_data="analytics_dashboard")]
             ])
             
             await query.edit_message_text(
-                text="✅ **График создан!**\n\nФайл отправлен в чат. Откройте его в браузере для просмотра.",
+                text=full_report,
                 reply_markup=keyboard,
                 parse_mode='Markdown'
             )
             
         except Exception as e:
-            logger.error(f"Ошибка создания сетевого графика: {e}")
-            await query.answer("❌ Ошибка создания графика")
+            logger.error(f"Ошибка генерации полного отчета: {e}")
+            await query.answer("❌ Ошибка генерации отчета")
     
-    async def create_processes_chart(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-        """Создать график топ процессов"""
+    # Методы сервера
+    async def restart_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Перезапустить бота"""
         query = update.callback_query
         
-        if not self.analytics:
-            await query.answer("❌ Модуль аналитики недоступен")
+        if not await self.role_manager.check_permission(user_id, "admin", "manage"):
+            await query.answer("❌ У вас нет прав для перезапуска бота")
             return
         
-        await query.answer("📊 Создаю график процессов...")
-        
         try:
-            chart_path = self.analytics.create_processes_chart(top_n=10)
+            await query.answer("🔄 Перезапуск бота...")
             
-            # Отправляем файл
-            with open(chart_path, 'rb') as file:
-                await context.bot.send_document(
-                    chat_id=user_id,
-                    document=file,
-                    filename="top_processes.html",
-                    caption="⚙️ **Топ 10 процессов**\n\nПо использованию CPU и памяти"
-                )
-            
-            # Показываем кнопки
+            # Создаем кнопку для подтверждения
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("📊 Создать еще", callback_data="analytics_processes")],
-                [InlineKeyboardButton("⬅️ Назад", callback_data="analytics_dashboard")]
+                [InlineKeyboardButton("✅ Да, перезапустить", callback_data="server_restart_confirm")],
+                [InlineKeyboardButton("❌ Отмена", callback_data="server_status")]
             ])
             
             await query.edit_message_text(
-                text="✅ **График создан!**\n\nФайл отправлен в чат. Откройте его в браузере для просмотра.",
+                "⚠️ **Перезапуск бота**\n\n"
+                "Бот будет перезапущен. Это может занять несколько секунд.\n"
+                "Вы уверены, что хотите продолжить?",
                 reply_markup=keyboard,
                 parse_mode='Markdown'
             )
             
         except Exception as e:
-            logger.error(f"Ошибка создания графика процессов: {e}")
-            await query.answer("❌ Ошибка создания графика")
-    
-    async def start_data_collection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-        """Запустить сбор данных для аналитики"""
+            await query.answer(f"❌ Ошибка: {str(e)}")
+
+    async def confirm_restart(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Подтверждение перезапуска"""
         query = update.callback_query
         
-        if not self.analytics:
-            await query.answer("❌ Модуль аналитики недоступен")
+        try:
+            await query.answer("🔄 Перезапуск...")
+            
+            await query.edit_message_text(
+                "🔄 **Перезапуск бота**\n\n"
+                "Бот перезапускается...\n"
+                "Попробуйте отправить /start через несколько секунд."
+            )
+            
+            # Запускаем перезапуск в отдельном потоке
+            import asyncio
+            asyncio.create_task(self.perform_restart())
+            
+        except Exception as e:
+            await query.answer(f"❌ Ошибка: {str(e)}")
+
+    async def perform_restart(self):
+        """Выполнить перезапуск бота"""
+        try:
+            # Ждем немного, чтобы сообщение отправилось
+            await asyncio.sleep(2)
+            
+            # Перезапускаем процесс
+            import os
+            import sys
+            python = sys.executable
+            os.execl(python, python, *sys.argv)
+            
+        except Exception as e:
+            logger.error(f"Ошибка перезапуска: {e}")
+
+    async def show_processes(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Показать процессы Python"""
+        query = update.callback_query
+        
+        if not await self.role_manager.check_permission(user_id, "admin", "view"):
+            await query.answer("❌ У вас нет прав для просмотра процессов")
             return
         
-        await query.answer("📈 Начинаю сбор данных...")
-        
         try:
-            # Собираем данные за 60 секунд
-            data_points = await self.analytics.collect_data_points(duration=60, interval=2)
+            await query.answer("📊 Получение процессов...")
             
-            # Создаем комплексный график
-            chart_path = self.analytics.create_cpu_memory_chart(data_points)
+            import psutil
             
-            # Отправляем файл
-            with open(chart_path, 'rb') as file:
-                await context.bot.send_document(
-                    chat_id=user_id,
-                    document=file,
-                    filename="system_analysis.html",
-                    caption="📈 **Анализ системы**\n\nДанные за 60 секунд"
-                )
+            # Находим все процессы Python
+            python_processes = []
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'memory_info']):
+                try:
+                    if 'python' in proc.info['name'].lower():
+                        memory_mb = proc.info['memory_info'].rss / 1024 / 1024
+                        python_processes.append({
+                            'pid': proc.info['pid'],
+                            'name': proc.info['name'],
+                            'cmdline': ' '.join(proc.info['cmdline'][:3]) if proc.info['cmdline'] else '',
+                            'memory': memory_mb
+                        })
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
             
-            # Показываем кнопки
+            if python_processes:
+                # Сортируем по использованию памяти
+                python_processes.sort(key=lambda x: x['memory'], reverse=True)
+                
+                processes_text = "🐍 **Процессы Python**\n\n"
+                for i, proc in enumerate(python_processes[:10], 1):  # Показываем топ 10
+                    processes_text += f"{i}. **PID {proc['pid']}**\n"
+                    processes_text += f"   Память: {proc['memory']:.1f} МБ\n"
+                    processes_text += f"   Команда: {proc['cmdline'][:50]}...\n\n"
+            else:
+                processes_text = "🐍 **Процессы Python**\n\nНе найдено процессов Python."
+            
+            # Создаем кнопки
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("📊 Создать еще", callback_data="analytics_collect_data")],
-                [InlineKeyboardButton("⬅️ Назад", callback_data="analytics_dashboard")]
+                [InlineKeyboardButton("🔄 Обновить", callback_data="server_processes")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="server_status")]
             ])
             
             await query.edit_message_text(
-                text="✅ **Анализ завершен!**\n\nФайл отправлен в чат. Откройте его в браузере для просмотра.",
+                processes_text,
                 reply_markup=keyboard,
                 parse_mode='Markdown'
             )
             
         except Exception as e:
-            logger.error(f"Ошибка сбора данных: {e}")
-            await query.answer("❌ Ошибка сбора данных") 
+            await query.answer(f"❌ Ошибка: {str(e)}")
+
+    async def create_backup(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Создать резервную копию данных"""
+        query = update.callback_query
+        
+        if not await self.role_manager.check_permission(user_id, "admin", "manage"):
+            await query.answer("❌ У вас нет прав для создания бэкапа")
+            return
+        
+        try:
+            await query.answer("💾 Создание бэкапа...")
+            
+            import os
+            from datetime import datetime
+            import tarfile
+            
+            # Создаем папку для бэкапов если её нет
+            backup_dir = "storage/backups"
+            os.makedirs(backup_dir, exist_ok=True)
+            
+            # Имя файла бэкапа
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_name = f"backup_{timestamp}.tar.gz"
+            backup_path = os.path.join(backup_dir, backup_name)
+            
+            # Создаем архив
+            with tarfile.open(backup_path, "w:gz") as tar:
+                # Добавляем папки для бэкапа
+                folders_to_backup = ["storage", "logs", "config.json"]
+                for folder in folders_to_backup:
+                    if os.path.exists(folder):
+                        tar.add(folder, arcname=os.path.basename(folder))
+            
+            # Получаем размер файла
+            file_size = os.path.getsize(backup_path) / 1024 / 1024  # МБ
+            
+            backup_text = f"""
+💾 **Бэкап создан!**
+
+**Файл:** {backup_name}
+**Размер:** {file_size:.2f} МБ
+**Путь:** {backup_path}
+**Время:** {datetime.now().strftime("%d.%m.%Y %H:%M:%S")}
+
+✅ Резервная копия успешно создана!
+            """
+            
+            # Создаем кнопки
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📁 Скачать бэкап", callback_data=f"backup_download_{backup_name}")],
+                [InlineKeyboardButton("🗑️ Удалить бэкап", callback_data=f"backup_delete_{backup_name}")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="server_status")]
+            ])
+            
+            await query.edit_message_text(
+                backup_text.strip(),
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            await query.answer(f"❌ Ошибка создания бэкапа: {str(e)}")
+
+    async def download_backup(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, backup_name: str):
+        """Скачать бэкап"""
+        query = update.callback_query
+        
+        try:
+            await query.answer("📁 Отправка бэкапа...")
+            
+            import os
+            backup_path = os.path.join("storage/backups", backup_name)
+            
+            if os.path.exists(backup_path):
+                with open(backup_path, 'rb') as f:
+                    await context.bot.send_document(
+                        chat_id=user_id,
+                        document=f,
+                        filename=backup_name,
+                        caption=f"💾 Резервная копия: {backup_name}"
+                    )
+                await query.answer("✅ Бэкап отправлен в чат")
+            else:
+                await query.answer("❌ Файл бэкапа не найден")
+                
+        except Exception as e:
+            await query.answer(f"❌ Ошибка: {str(e)}")
+
+    async def delete_backup(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, backup_name: str):
+        """Удалить бэкап"""
+        query = update.callback_query
+        
+        try:
+            import os
+            backup_path = os.path.join("storage/backups", backup_name)
+            
+            if os.path.exists(backup_path):
+                os.remove(backup_path)
+                await query.answer("✅ Бэкап удален")
+                
+                # Возвращаемся к статусу сервера
+                from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔄 Обновить статус", callback_data="server_status")]
+                ])
+                
+                await query.edit_message_text(
+                    f"✅ **Бэкап удален!**\n\nФайл {backup_name} был удален.",
+                    reply_markup=keyboard,
+                    parse_mode='Markdown'
+                )
+            else:
+                await query.answer("❌ Файл бэкапа не найден")
+                
+        except Exception as e:
+            await query.answer(f"❌ Ошибка: {str(e)}")
+
+    # Методы админки
+    async def add_user(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Добавить нового пользователя"""
+        query = update.callback_query
+        
+        if not await self.role_manager.check_permission(user_id, "admin", "manage"):
+            await query.answer("❌ У вас нет прав для добавления пользователей.")
+            return
+        
+        try:
+            await query.answer("➕ Добавление пользователя...")
+            
+            # Создаем форму для добавления пользователя
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📝 Ввести ID пользователя", callback_data="admin_add_user_id")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="admin_users")]
+            ])
+            
+            await query.edit_message_text(
+                "➕ **Добавление пользователя**\n\n"
+                "Для добавления нового пользователя:\n"
+                "1. Попросите пользователя отправить боту команду /start\n"
+                "2. Скопируйте его Telegram ID\n"
+                "3. Введите ID и выберите роль\n\n"
+                "Или нажмите кнопку ниже для ввода ID:",
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            await query.answer(f"❌ Ошибка: {str(e)}")
+
+    async def show_add_user_form(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Показать форму добавления пользователя"""
+        query = update.callback_query
+        
+        try:
+            await query.answer("📝 Форма добавления...")
+            
+            # Сохраняем состояние в контексте
+            context.user_data['adding_user'] = True
+            
+            # Создаем кнопки с ролями
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("👤 Пользователь", callback_data="admin_role_user")],
+                [InlineKeyboardButton("🔧 Модератор", callback_data="admin_role_moderator")],
+                [InlineKeyboardButton("👑 Администратор", callback_data="admin_role_admin")],
+                [InlineKeyboardButton("❌ Отмена", callback_data="admin_users")]
+            ])
+            
+            await query.edit_message_text(
+                "📝 **Добавление пользователя**\n\n"
+                "Отправьте мне Telegram ID пользователя в следующем сообщении.\n"
+                "Затем выберите роль для нового пользователя.\n\n"
+                "**Как получить Telegram ID:**\n"
+                "1. Попросите пользователя написать боту @userinfobot\n"
+                "2. Скопируйте его ID из ответа\n"
+                "3. Отправьте ID мне",
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            await query.answer(f"❌ Ошибка: {str(e)}")
+
+    async def set_user_role(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Установить роль для нового пользователя"""
+        query = update.callback_query
+        
+        try:
+            # Получаем роль из callback_data
+            role = query.data.replace("admin_role_", "")
+            role_names = {
+                "user": "Пользователь",
+                "moderator": "Модератор", 
+                "admin": "Администратор"
+            }
+            
+            # Получаем ID пользователя из контекста
+            new_user_id = context.user_data.get('new_user_id')
+            if not new_user_id:
+                await query.answer("❌ ID пользователя не найден. Попробуйте еще раз.")
+                return
+            
+            # Добавляем пользователя
+            success = await self.role_manager.add_user(
+                user_id=new_user_id,
+                name=f"Пользователь {new_user_id}",
+                role=role,
+                added_by=user_id
+            )
+            
+            if success:
+                await query.answer(f"✅ Пользователь добавлен с ролью '{role_names[role]}'")
+                
+                # Очищаем контекст
+                context.user_data.pop('adding_user', None)
+                context.user_data.pop('new_user_id', None)
+                
+                # Возвращаемся к списку пользователей
+                from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("➕ Добавить пользователя", callback_data="admin_add_user")],
+                    [InlineKeyboardButton("🔄 Обновить список", callback_data="admin_users")]
+                ])
+                
+                await query.edit_message_text(
+                    f"✅ **Пользователь добавлен!**\n\n"
+                    f"**ID:** {new_user_id}\n"
+                    f"**Роль:** {role_names[role]}\n\n"
+                    f"Пользователь может теперь использовать бота.",
+                    reply_markup=keyboard,
+                    parse_mode='Markdown'
+                )
+            else:
+                await query.answer("❌ Ошибка добавления пользователя")
+                
+        except Exception as e:
+            await query.answer(f"❌ Ошибка: {str(e)}")
+
+    async def delete_user(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Удалить пользователя"""
+        query = update.callback_query
+        
+        if not await self.role_manager.check_permission(user_id, "admin", "manage"):
+            await query.answer("❌ У вас нет прав для удаления пользователей.")
+            return
+        
+        try:
+            await query.answer("🗑️ Удаление пользователя...")
+            
+            # Получаем список пользователей для выбора
+            users = await self.role_manager.list_users(user_id)
+            
+            if not users:
+                await query.edit_message_text(
+                    "❌ Нет пользователей для удаления.",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("⬅️ Назад", callback_data="admin_users")]
+                    ])
+                )
+                return
+            
+            # Создаем кнопки с пользователями
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = []
+            for user in users:
+                if user['id'] != user_id:  # Нельзя удалить себя
+                    keyboard.append([
+                        InlineKeyboardButton(
+                            f"🗑️ {user['name']} ({user['role']})", 
+                            callback_data=f"admin_delete_confirm_{user['id']}"
+                        )
+                    ])
+            
+            keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data="admin_users")])
+            
+            await query.edit_message_text(
+                "🗑️ **Удаление пользователя**\n\n"
+                "Выберите пользователя для удаления:\n"
+                "(Вы не можете удалить себя)",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            await query.answer(f"❌ Ошибка: {str(e)}")
+
+    async def confirm_delete_user(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Подтвердить удаление пользователя"""
+        query = update.callback_query
+        
+        try:
+            # Получаем ID пользователя из callback_data
+            target_user_id = int(query.data.replace("admin_delete_confirm_", ""))
+            
+            # Получаем информацию о пользователе
+            user_info = await self.role_manager.get_user_info(target_user_id)
+            
+            if not user_info:
+                await query.answer("❌ Пользователь не найден")
+                return
+            
+            # Создаем кнопки подтверждения
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ Да, удалить", callback_data=f"admin_delete_final_{target_user_id}")],
+                [InlineKeyboardButton("❌ Отмена", callback_data="admin_delete_user")]
+            ])
+            
+            await query.edit_message_text(
+                f"⚠️ **Подтверждение удаления**\n\n"
+                f"Вы действительно хотите удалить пользователя:\n"
+                f"**{user_info['name']}** (ID: {target_user_id})\n"
+                f"Роль: {user_info['role']}\n\n"
+                f"Это действие нельзя отменить!",
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            await query.answer(f"❌ Ошибка: {str(e)}")
+
+    async def final_delete_user(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Выполнить удаление пользователя"""
+        query = update.callback_query
+        
+        try:
+            # Получаем ID пользователя из callback_data
+            target_user_id = int(query.data.replace("admin_delete_final_", ""))
+            
+            # Удаляем пользователя
+            success = await self.role_manager.remove_user(target_user_id, user_id)
+            
+            if success:
+                await query.answer("✅ Пользователь удален")
+                
+                from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔄 Обновить список", callback_data="admin_users")]
+                ])
+                
+                await query.edit_message_text(
+                    f"✅ **Пользователь удален!**\n\n"
+                    f"Пользователь с ID {target_user_id} был удален из системы.",
+                    reply_markup=keyboard,
+                    parse_mode='Markdown'
+                )
+            else:
+                await query.answer("❌ Ошибка удаления пользователя")
+                
+        except Exception as e:
+            await query.answer(f"❌ Ошибка: {str(e)}")
+
+    async def show_logs(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Показать логи бота"""
+        query = update.callback_query
+        
+        if not await self.role_manager.check_permission(user_id, "admin", "view"):
+            await query.answer("❌ У вас нет прав для просмотра логов.")
+            return
+        
+        try:
+            await query.answer("📋 Получение логов...")
+            
+            # Читаем последние строки из лог файла
+            log_file = "logs/sella_bot.log"
+            try:
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    last_lines = lines[-20:] if len(lines) > 20 else lines  # Последние 20 строк
+                    log_content = ''.join(last_lines)
+            except FileNotFoundError:
+                log_content = "Лог файл не найден."
+            except Exception as e:
+                log_content = f"Ошибка чтения лога: {str(e)}"
+            
+            # Создаем кнопки
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔄 Обновить логи", callback_data="admin_logs")],
+                [InlineKeyboardButton("📁 Полный лог", callback_data="admin_full_log")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="admin_users")]
+            ])
+            
+            await query.edit_message_text(
+                f"📋 **Последние логи бота**\n\n"
+                f"```\n{log_content[-3000:]}\n```\n\n"
+                f"Показано последних {len(last_lines) if 'last_lines' in locals() else 0} строк",
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            await query.answer(f"❌ Ошибка: {str(e)}")
+
+    async def show_full_log(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Показать полный лог"""
+        query = update.callback_query
+        
+        try:
+            await query.answer("📁 Получение полного лога...")
+            
+            # Читаем весь лог файл
+            log_file = "logs/sella_bot.log"
+            try:
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    log_content = f.read()
+            except FileNotFoundError:
+                log_content = "Лог файл не найден."
+            except Exception as e:
+                log_content = f"Ошибка чтения лога: {str(e)}"
+            
+            # Если лог слишком большой, отправляем как файл
+            if len(log_content) > 4000:
+                # Создаем временный файл
+                import tempfile
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.log', delete=False, encoding='utf-8') as f:
+                    f.write(log_content)
+                    temp_file = f.name
+                
+                # Отправляем файл
+                with open(temp_file, 'rb') as f:
+                    await context.bot.send_document(
+                        chat_id=user_id,
+                        document=f,
+                        filename="sella_bot_full.log",
+                        caption="📁 Полный лог бота"
+                    )
+                
+                # Удаляем временный файл
+                import os
+                os.unlink(temp_file)
+                
+                await query.answer("📁 Полный лог отправлен в чат")
+            else:
+                # Показываем в сообщении
+                from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("⬅️ Назад", callback_data="admin_logs")]
+                ])
+                
+                await query.edit_message_text(
+                    f"📁 **Полный лог бота**\n\n"
+                    f"```\n{log_content}\n```",
+                    reply_markup=keyboard,
+                    parse_mode='Markdown'
+                )
+            
+        except Exception as e:
+            await query.answer(f"❌ Ошибка: {str(e)}") 
+
+    async def show_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Показать справку по боту"""
+        query = update.callback_query
+        
+        try:
+            await query.answer("ℹ️ Открываю справку...")
+            
+            help_text = """
+🤖 **Селла - Универсальный бот-менеджер**
+
+## 📋 Основные команды
+• `/start` - Запуск бота и главное меню
+• `/help` - Эта справка
+• `/menu` - Главное меню
+• `/status` - Статус системы
+
+## 🖥️ Разделы бота
+
+### 📊 Аналитика
+• Системная статистика (CPU, память, диск)
+• События бота
+• Активность пользователей
+• Полный отчет о производительности
+
+### 🖥️ Система
+• Мониторинг системы в реальном времени
+• Настройки системы
+• Уведомления
+
+### ⚙️ Сервер
+• Статус бота
+• Перезапуск бота
+• Просмотр процессов Python
+• Создание резервных копий
+
+### 💾 Хранилище
+• Просмотр файлов
+• Загрузка файлов
+• Скачивание файлов
+• Поиск файлов
+• Удаление файлов
+
+### 👤 Админка (только для администраторов)
+• Управление пользователями
+• Добавление/удаление пользователей
+• Просмотр логов
+• Управление правами
+
+## 🔧 Управление пользователями
+
+### Добавление пользователя:
+1. Откройте раздел **👤 Админка**
+2. Нажмите **"➕ Добавить пользователя"**
+3. Попросите пользователя написать боту @userinfobot
+4. Скопируйте его Telegram ID
+5. Введите ID и выберите роль
+
+### Роли пользователей:
+• **👤 Пользователь** - базовый доступ
+• **🔧 Модератор** - расширенные права
+• **👑 Администратор** - полный доступ
+
+## 🛠️ Устранение проблем
+
+### Бот не отвечает:
+1. Проверьте токен в `config.json`
+2. Перезапустите бота через раздел **⚙️ Сервер**
+3. Проверьте логи в разделе **👤 Админка**
+
+### Нет доступа к функциям:
+1. Убедитесь, что ваш ID добавлен в `admin_ids`
+2. Проверьте, что у вас роль "Администратор"
+
+## 📞 Поддержка
+
+Для получения дополнительной помощи:
+• Проверьте файл `BOT_SETUP_GUIDE.md`
+• Посмотрите логи бота
+• Обратитесь к администратору
+
+---
+**Версия:** 2.0 (Termux)
+**Платформа:** Android/Termux
+            """
+            
+            # Создаем кнопки
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📖 Подробная инструкция", callback_data="help_setup_guide")],
+                [InlineKeyboardButton("🔧 Устранение проблем", callback_data="help_troubleshooting")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="main_menu")]
+            ])
+            
+            await query.edit_message_text(
+                help_text.strip(),
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            await query.answer(f"❌ Ошибка: {str(e)}")
+
+    async def show_setup_guide(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Показать подробную инструкцию по настройке"""
+        query = update.callback_query
+        
+        try:
+            await query.answer("📖 Открываю инструкцию...")
+            
+            setup_text = """
+📖 **Подробная инструкция по настройке**
+
+## 🆕 Создание бота в Telegram
+
+### Шаг 1: Найти BotFather
+1. Откройте Telegram
+2. Найдите пользователя **@BotFather**
+3. Нажмите **"Start"** или отправьте команду `/start`
+
+### Шаг 2: Создать нового бота
+1. Отправьте команду `/newbot`
+2. Введите **имя бота** (например: "Селла - Универсальный менеджер")
+3. Введите **username бота** (например: "sella_manager_bot")
+   - Должен заканчиваться на `bot`
+   - Может содержать только буквы, цифры и подчеркивания
+   - Должен быть уникальным
+
+### Шаг 3: Получить токен
+BotFather отправит вам сообщение с токеном:
+```
+Use this token to access the HTTP API:
+1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
+```
+
+**⚠️ ВАЖНО:** Сохраните этот токен!
+
+## ⚙️ Настройка конфигурации
+
+### Шаг 1: Открыть config.json
+Откройте файл `config.json` в корне проекта
+
+### Шаг 2: Вставить токен
+Замените `"ВАШ_ТОКЕН_ЗДЕСЬ"` на ваш токен
+
+### Шаг 3: Указать ID администратора
+Замените `ВАШ_TELEGRAM_ID` на ваш Telegram ID
+
+**Как узнать свой Telegram ID:**
+1. Найдите бота @userinfobot в Telegram
+2. Отправьте ему любое сообщение
+3. Он ответит вашим ID
+
+## 📱 Установка в Termux
+
+### Шаг 1: Установить Termux
+1. Скачайте Termux с F-Droid (НЕ из Google Play!)
+2. Установите приложение
+3. Откройте Termux
+
+### Шаг 2: Обновить систему
+```bash
+pkg update -y && pkg upgrade -y
+```
+
+### Шаг 3: Установить необходимые пакеты
+```bash
+pkg install python python-pip git -y
+```
+
+### Шаг 4: Клонировать проект
+```bash
+git clone <URL_ВАШЕГО_РЕПОЗИТОРИЯ>
+cd <ПАПКА_ПРОЕКТА>
+```
+
+### Шаг 5: Запустить автоматическую установку
+```bash
+chmod +x start_termux.sh
+./start_termux.sh
+```
+
+## 🚀 Первый запуск
+
+### Шаг 1: Найти бота
+1. Откройте Telegram
+2. Найдите вашего бота по username
+3. Нажмите **"Start"** или отправьте `/start`
+
+### Шаг 2: Проверить работу
+Бот должен ответить приветственным сообщением
+
+### Шаг 3: Проверить меню
+Должны появиться кнопки всех разделов
+
+---
+**Подробнее:** См. файл `BOT_SETUP_GUIDE.md`
+            """
+            
+            # Создаем кнопки
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔧 Устранение проблем", callback_data="help_troubleshooting")],
+                [InlineKeyboardButton("⬅️ Назад к справке", callback_data="help")]
+            ])
+            
+            await query.edit_message_text(
+                setup_text.strip(),
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            await query.answer(f"❌ Ошибка: {str(e)}")
+
+    async def show_troubleshooting(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+        """Показать раздел устранения проблем"""
+        query = update.callback_query
+        
+        try:
+            await query.answer("🔧 Открываю раздел проблем...")
+            
+            troubleshooting_text = """
+🔧 **Устранение проблем**
+
+## ❌ Бот не отвечает
+
+### Возможные причины:
+1. **Неправильный токен** в `config.json`
+2. **Нет интернет соединения**
+3. **Бот остановлен**
+
+### Решение:
+1. Проверьте токен в `config.json`
+2. Перезапустите бота:
+   ```bash
+   python main.py
+   ```
+3. Проверьте логи в разделе **👤 Админка**
+
+## ❌ Ошибка "Module not found"
+
+### Решение:
+```bash
+source venv/bin/activate
+pip install -r requirements_termux.txt
+```
+
+## ❌ Ошибка "Permission denied"
+
+### Решение:
+```bash
+chmod +x start_termux.sh
+```
+
+## ❌ Бот не запускается
+
+### Проверьте:
+1. **Логи:**
+   ```bash
+   tail -f logs/sella_bot.log
+   ```
+
+2. **Конфигурацию:**
+   ```bash
+   python -c "import json; print(json.load(open('config.json')))"
+   ```
+
+## ❌ Нет доступа к функциям
+
+### Проверьте:
+1. Ваш ID добавлен в `admin_ids` в `config.json`
+2. У вас роль "Администратор"
+
+### Как добавить себя в админы:
+1. Откройте `config.json`
+2. Найдите строку `"admin_ids": [ВАШ_ID]`
+3. Замените `ВАШ_ID` на ваш Telegram ID
+
+## ❌ Ошибки в Termux
+
+### Проблема: "No space left"
+```bash
+pkg clean
+rm -rf ~/.cache/pip
+```
+
+### Проблема: "Package not found"
+```bash
+pkg update -y
+pkg install python python-pip -y
+```
+
+## 🔄 Автозапуск в Termux
+
+Для автоматического запуска при перезагрузке:
+```bash
+# Установить cronie
+pkg install cronie -y
+
+# Открыть crontab
+crontab -e
+
+# Добавить строку
+@reboot cd /path/to/bot && ./start_termux.sh
+```
+
+## 📞 Дополнительная помощь
+
+### Полезные команды:
+- `/start` - запуск бота
+- `/help` - справка
+- `/status` - статус системы
+- `/menu` - главное меню
+
+### Логи и отладка:
+- Логи сохраняются в `logs/sella_bot.log`
+- Для просмотра: `tail -f logs/sella_bot.log`
+- Для очистки: `> logs/sella_bot.log`
+
+---
+**Если проблема не решена:** Обратитесь к администратору
+            """
+            
+            # Создаем кнопки
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📖 Инструкция по настройке", callback_data="help_setup_guide")],
+                [InlineKeyboardButton("⬅️ Назад к справке", callback_data="help")]
+            ])
+            
+            await query.edit_message_text(
+                troubleshooting_text.strip(),
+                reply_markup=keyboard,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            await query.answer(f"❌ Ошибка: {str(e)}") 

@@ -42,6 +42,9 @@ class MenuButtons:
             InlineKeyboardButton("❌ Закрыть", callback_data="close")
         ])
         
+        # Кнопка помощи
+        keyboard.append([InlineKeyboardButton("ℹ️ Помощь", callback_data="help")])
+        
         return InlineKeyboardMarkup(keyboard)
     
     @staticmethod
@@ -84,10 +87,11 @@ class MenuButtons:
         
         # Управление сервером
         if "server" in user_permissions and "manage" in user_permissions["server"]:
-            keyboard.append([
-                InlineKeyboardButton("🟢 Запустить", callback_data="server_start"),
-                InlineKeyboardButton("🔴 Остановить", callback_data="server_stop")
-            ])
+            keyboard.append([InlineKeyboardButton("🔄 Перезапуск бота", callback_data="server_restart")])
+        
+        # Процессы
+        if "server" in user_permissions and "view" in user_permissions["server"]:
+            keyboard.append([InlineKeyboardButton("🐍 Процессы Python", callback_data="server_processes")])
         
         # Бэкапы
         if "server" in user_permissions and "backup" in user_permissions["server"]:
@@ -142,6 +146,7 @@ class MenuButtons:
         # Управление пользователями
         if "admin" in user_permissions:
             keyboard.append([InlineKeyboardButton("👥 Пользователи", callback_data="admin_users")])
+            keyboard.append([InlineKeyboardButton("➕ Добавить пользователя", callback_data="admin_add_user")])
             keyboard.append([InlineKeyboardButton("🔐 Управление правами", callback_data="admin_permissions")])
             keyboard.append([InlineKeyboardButton("📝 Просмотр логов", callback_data="admin_logs")])
             keyboard.append([InlineKeyboardButton("⚙️ Конфигурация", callback_data="admin_config")])
