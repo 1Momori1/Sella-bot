@@ -167,13 +167,7 @@ install_python_deps() {
 import telegram
 import psutil
 import asyncio
-import json
-import os
-import sys
-import logging
-import datetime
-print('All modules installed successfully')
-" 2>/dev/null; then
+if python -c "import telegram, psutil, asyncio, json, os, logging; print('All modules installed successfully')" 2>/dev/null; then
         print_success "Все зависимости установлены успешно!"
     else
         print_error "Ошибка проверки зависимостей!"
